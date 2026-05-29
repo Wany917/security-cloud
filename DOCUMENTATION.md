@@ -159,7 +159,7 @@ micro-segmentation.
 
 ### Ce qu'on a corrigé sur l'existant
 
-Le VPC créé à la main était incomplet : **l'IGW était posé mais pas branché** (aucune route
+Le VPC créé à la main était in : **l'IGW était posé mais pas branché** (aucune route
 `0.0.0.0/0` vers lui). On a ajouté la route publique, une route table privée isolée, et un
 NAT optionnel (désactivé par défaut car payant).
 
@@ -296,15 +296,15 @@ sops -d envs/students/secrets.enc.yaml      # pour relire/éditer (nécessite le
 
 ---
 
-## 11. État de conformité (honnête)
+## 11. État de conformité
 
 | Step | État |
 |---|---|
-| 1 — Secrets (KMS + SOPS) | ✅ complet (secret chiffré + round-trip prouvé) |
-| 2 — Réseau (VPC, SG, IMDSv2) | ✅ complet (EC2 `i-021f9eb2...` déployée, `http_tokens=required` vérifié live) |
-| 3 — Logs | ✅ complet (CloudTrail→S3, flow logs→CloudWatch **et** →S3) |
-| 4 — IAM hardening | ✅ complet |
-| Bonus | ✅ TFsec + CI OIDC + remote state + hooks ; static testing applicatif restant (optionnel) |
+| 1 — Secrets (KMS + SOPS) | [Done] (secret chiffré + round-trip prouvé) |
+| 2 — Réseau (VPC, SG, IMDSv2) | [Done] (EC2 `i-021f9eb2...` déployée, `http_tokens=required` vérifié live) |
+| 3 — Logs | [Done] (CloudTrail→S3, flow logs→CloudWatch **et** →S3) |
+| 4 — IAM hardening | [Done] |
+| Bonus | [Done]TFsec + CI OIDC + remote state + hooks ; static testing applicatif restant (optionnel) |
 
 Les 4 steps sont couverts. Seul reste, côté bonus, le static testing applicatif (analyse
 du code PHP, optionnel).
