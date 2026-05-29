@@ -1,0 +1,44 @@
+name: sast
+
+on:
+  push:
+    branches: [main, Trunk]
+  pull_request:
+    branches: [main, Trunk]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  semgrep:
+    name: semgrep (app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install semgrep
+        run: pip install semgrep
+
+      # Scan du code applicatif. index.php (version CTF) doit lever des findings,
+      # index.secure.php doit etre propre. Informationnel (l'app vulnerable est
+      # une reference volontaire), les findings restent visibles dans le log + SARIF.
+      - name: Semgrep scan (resume console)
+        continue-on-error: true
+        run: semgrep --config p/php --config p/security-audit app/
+
+      - name: Semgrep scan (SARIF)
+        continue-on-error: true
+        run: semgrep --config p/php --config p/security-audit --sarif --output semgrep.sarif app/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-results
+          path: semgrep.sarif

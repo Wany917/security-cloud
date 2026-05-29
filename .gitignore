@@ -23,3 +23,6 @@ terraform.rc
 *.swp
 secrets.yaml
 !secrets.enc.yaml
+
+# rapports SAST
+*.sarif
