@@ -2,6 +2,14 @@
 
 Infrastructure Terraform pour le TP ESGI sécurité AWS. Version hardenée du challenge `kungfu` (CTF : SSRF → IMDSv1 → S3 cleartext creds → fake admin).
 
+## Auteurs
+
+| Nom | Prénom | Classe |
+|-----|--------|--------|
+| FERREIRA | Jiullian | MAS_SE2_000_ALT — 5ESGI SI CL A ALT RO |
+| PIVATY | Gabriel-Ange | MAS_SE2_000_ALT — 5ESGI SI CL A ALT RO |
+| KAKOU | Marceau | MAS_SE2_000_ALT |
+
 ## Compte cible
 
 `wany 1070-1441-4516` (eu-west-3, AWS SSO)
