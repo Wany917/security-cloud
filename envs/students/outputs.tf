@@ -87,6 +87,11 @@ output "kms_logs_key_arn" {
   description = "ARN de la cle KMS des flow logs."
 }
 
+output "logs_archive_bucket" {
+  value       = module.logs_export.archive_bucket
+  description = "Bucket S3 d'archivage des logs CloudWatch (via Firehose)."
+}
+
 # ── IAM / Secrets ──
 output "secretsreader_role_arn" {
   value       = module.iam_secretsreader.role_arn

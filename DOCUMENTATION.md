@@ -184,11 +184,18 @@ de réponse à incident.
 - **CloudTrail** = la caméra qui filme **tous les appels d'API** du compte (qui a fait quoi,
   quand). Chez nous : multi-région, chiffré KMS, logs immuables (versioning + validation
   d'intégrité), stockés sur S3.
-- **VPC Flow Logs** = le relevé de **tout le trafic réseau** du VPC, envoyé vers CloudWatch
-  (chiffré KMS, rétention 30 jours).
+- **VPC Flow Logs** = le relevé de **tout le trafic réseau** du VPC. Livrés à **deux
+  destinations** :
+  - vers **CloudWatch** (chiffré KMS, rétention 30 j) pour l'alerting temps réel ;
+  - vers **S3** (chiffré KMS, lifecycle Glacier) pour l'archivage durable.
 
 Tout est chiffré et conservé. Un attaquant ne peut ni lire les logs (chiffrement), ni les
 effacer discrètement (versioning + bucket verrouillé).
+
+> Note d'environnement : le chemin canonique « CloudWatch Logs → S3 » passe par **Kinesis
+> Firehose**, mais le compte student le bloque (`SubscriptionRequiredException`). On obtient
+> le même résultat — logs réseau archivés dans S3 — via la **livraison native S3 des flow
+> logs**, gratuite et supportée partout.
 
 ---
 
@@ -289,10 +296,11 @@ sops -d envs/students/secrets.enc.yaml      # pour relire/éditer (nécessite le
 
 | Step | État |
 |---|---|
-| 1 — Secrets (KMS + SOPS) | ✅ complet |
-| 2 — Réseau (VPC, SG, IMDSv2) | ✅ complet (EC2 démo déployable au besoin) |
-| 3 — Logs | 🟡 CloudTrail→S3 ✅, flow logs ✅ ; **export CloudWatch→S3** restant |
+| 1 — Secrets (KMS + SOPS) | ✅ complet (secret chiffré + round-trip prouvé) |
+| 2 — Réseau (VPC, SG, IMDSv2) | ✅ complet (EC2 `i-021f9eb2...` déployée, `http_tokens=required` vérifié live) |
+| 3 — Logs | ✅ complet (CloudTrail→S3, flow logs→CloudWatch **et** →S3) |
 | 4 — IAM hardening | ✅ complet |
-| Bonus | ✅ TFsec + CI OIDC + remote state + hooks ; static testing applicatif restant |
+| Bonus | ✅ TFsec + CI OIDC + remote state + hooks ; static testing applicatif restant (optionnel) |
 
-Les points restants sont identifiés et mineurs (un item de logs + un bonus applicatif).
+Les 4 steps sont couverts. Seul reste, côté bonus, le static testing applicatif (analyse
+du code PHP, optionnel).

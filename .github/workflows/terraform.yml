@@ -11,6 +11,10 @@ permissions:
   contents: read
   pull-requests: write
 
+# Opt-in Node 24 (les actions tournent encore en Node 20, deprecie a partir de juin 2026).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   static-checks:
     name: fmt + tfsec
@@ -25,11 +29,12 @@ jobs:
       - name: terraform fmt check
         run: terraform fmt -check -recursive
 
+      # baseline/ est l'infra volontairement vulnerable (reference du CTF) : on l'exclut.
       - name: tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: .
-          additional_args: --minimum-severity MEDIUM --soft-fail=false
+          additional_args: --minimum-severity MEDIUM --soft-fail=false --exclude-path baseline
 
   plan:
     name: terraform plan (students)

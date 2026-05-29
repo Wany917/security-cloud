@@ -8,6 +8,7 @@ repos:
           - --hook-config=--retry-once-with-cleanup=true
       - id: terraform_tflint
       - id: terraform_tfsec
+        exclude: ^baseline/
         args:
           - --args=--minimum-severity=MEDIUM
 
