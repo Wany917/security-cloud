@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: envs/students/secrets(\.enc)?\.ya?ml$
+    kms: "arn:aws:kms:eu-west-3:107014414516:key/6a9be746-e794-4da8-a7ff-7fc2f526bc32"
+    encrypted_regex: "^(data|password|token|secret|key|access_key|access_key_id|secret_access_key)$"

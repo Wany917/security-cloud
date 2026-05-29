@@ -1,0 +1,71 @@
+name: terraform
+
+on:
+  push:
+    branches: [main, Trunk]
+  pull_request:
+    branches: [main, Trunk]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  static-checks:
+    name: fmt + tfsec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: .
+          additional_args: --minimum-severity MEDIUM --soft-fail=false
+
+  plan:
+    name: terraform plan (students)
+    needs: static-checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::107014414516:role/github-actions-terraform
+          aws-region: eu-west-3
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: init + plan
+        working-directory: envs/students
+        run: |
+          terraform init -no-color
+          terraform plan -no-color -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('envs/students/plan.txt', 'utf8');
+            const body = '### Terraform plan (students)\n```\n' + plan.slice(0, 60000) + '\n```';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
