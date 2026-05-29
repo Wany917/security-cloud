@@ -1,13 +1,3 @@
-terraform {
-  required_version = ">= 1.6"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.50"
-    }
-  }
-}
-
 resource "aws_cloudwatch_log_group" "flow" {
   name              = "/${var.name_prefix}/vpc/flow-logs"
   retention_in_days = var.retention_days

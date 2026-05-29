@@ -41,11 +41,15 @@ aws-hardening/
 │   ├── kms/               # Clés de chiffrement + qui a le droit de s'en servir
 │   ├── network/           # VPC, subnets, routing, gateway
 │   ├── security-groups/   # Pare-feux réseau (web / db)
-│   ├── iam/               # Rôle machine à permissions limitées
-│   └── logging/           # VPC flow logs → CloudWatch
+│   ├── ec2/               # Instance durcie (IMDSv2)
+│   ├── iam/               # User analyst (read-only + boundary) + rôle machine
+│   ├── cloudtrail/        # Bucket + trail d'audit chiffrés
+│   ├── sops/              # User SOPS + clé KMS dédiée aux secrets
+│   ├── logging/           # VPC flow logs → CloudWatch
+│   └── logs-archive/      # VPC flow logs → S3 (archivage)
 │
 ├── envs/students/         # L'ASSEMBLAGE réellement déployé (le "APRÈS" durci)
-│                          # = on branche les modules ensemble + on importe l'existant
+│                          # = ne fait QU'assembler les modules (+ le secret)
 │
 ├── .github/workflows/     # La CI/CD (GitHub Actions)
 ├── .pre-commit-config.yaml# Les garde-fous avant chaque commit

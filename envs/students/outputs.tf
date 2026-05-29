@@ -1,53 +1,71 @@
+# ── Secrets (SOPS) ──
 output "kms_sops_key_arn" {
-  value       = module.kms_sops.key_arn
+  value       = module.sops.kms_key_arn
   description = "ARN de la cle KMS pour SOPS. A copier dans .sops.yaml."
 }
 
 output "kms_sops_alias" {
-  value       = module.kms_sops.alias_name
+  value       = module.sops.kms_alias
   description = "Alias humain-lisible de la cle SOPS."
 }
 
-output "kms_cloudtrail_key_arn" {
-  value       = module.kms_cloudtrail.key_arn
-  description = "ARN de la cle KMS qui chiffre les logs CloudTrail."
-}
-
 output "sops_user_name" {
-  value       = aws_iam_user.sops.name
+  value       = module.sops.user_name
   description = "Nom du user IAM qui utilise SOPS."
 }
 
 output "sops_user_access_key_id" {
-  value       = aws_iam_access_key.sops.id
+  value       = module.sops.access_key_id
   description = "Access key ID pour le user SOPS. A stocker dans un coffre, pas dans git."
   sensitive   = true
 }
 
 output "sops_user_secret_access_key" {
-  value       = aws_iam_access_key.sops.secret
+  value       = module.sops.secret_access_key
   description = "Secret access key du user SOPS."
   sensitive   = true
 }
 
+# ── CloudTrail ──
+output "kms_cloudtrail_key_arn" {
+  value       = module.cloudtrail.kms_key_arn
+  description = "ARN de la cle KMS qui chiffre les logs CloudTrail."
+}
+
 output "cloudtrail_name" {
-  value       = aws_cloudtrail.audit.name
-  description = "Nom du trail CloudTrail (importe puis hardene)."
+  value       = module.cloudtrail.trail_name
+  description = "Nom du trail CloudTrail."
 }
 
 output "cloudtrail_bucket" {
-  value       = aws_s3_bucket.cloudtrail.id
+  value       = module.cloudtrail.bucket
   description = "Bucket S3 destination des logs CloudTrail."
 }
 
+# ── IAM ──
 output "analyst_user_name" {
-  value       = aws_iam_user.analyst.name
+  value       = module.iam.analyst_user_name
   description = "Nom du user analyst avec permissions boundary."
 }
 
 output "analyst_permissions_boundary_arn" {
-  value       = aws_iam_policy.analyst_permissions_boundary.arn
+  value       = module.iam.analyst_permissions_boundary_arn
   description = "ARN de la permissions boundary appliquee a l'analyst."
+}
+
+output "secretsreader_role_arn" {
+  value       = module.iam.role_arn
+  description = "ARN du role EC2 secretsreader."
+}
+
+output "secretsreader_instance_profile" {
+  value       = module.iam.instance_profile_name
+  description = "Instance profile du role secretsreader."
+}
+
+output "fyc_db_secret_arn" {
+  value       = aws_secretsmanager_secret.fyc_db.arn
+  description = "ARN du secret BDD repris en IaC."
 }
 
 # ── Reseau ──
@@ -89,23 +107,7 @@ output "kms_logs_key_arn" {
 
 output "logs_archive_bucket" {
   value       = module.logs_export.archive_bucket
-  description = "Bucket S3 d'archivage des logs CloudWatch (via Firehose)."
-}
-
-# ── IAM / Secrets ──
-output "secretsreader_role_arn" {
-  value       = module.iam_secretsreader.role_arn
-  description = "ARN du role EC2 secretsreader."
-}
-
-output "secretsreader_instance_profile" {
-  value       = module.iam_secretsreader.instance_profile_name
-  description = "Instance profile du role secretsreader."
-}
-
-output "fyc_db_secret_arn" {
-  value       = aws_secretsmanager_secret.fyc_db.arn
-  description = "ARN du secret BDD repris en IaC."
+  description = "Bucket S3 d'archivage des logs reseau."
 }
 
 # ── EC2 demo ──

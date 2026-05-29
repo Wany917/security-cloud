@@ -1,13 +1,3 @@
-terraform {
-  required_version = ">= 1.6"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.50"
-    }
-  }
-}
-
 # ──────────────────────────────────────────────────────────────────────────
 # "Logs to S3" : archivage natif des VPC flow logs directement dans S3.
 # (Kinesis Firehose, le chemin CloudWatch->S3 classique, n'est pas disponible

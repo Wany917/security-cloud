@@ -1,13 +1,3 @@
-terraform {
-  required_version = ">= 1.6"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.50"
-    }
-  }
-}
-
 # Tier web : seul point d'entree expose (80/443). Egress libre.
 # Description identique a l'existant (immuable apres creation, sinon replace a l'import).
 resource "aws_security_group" "web" {

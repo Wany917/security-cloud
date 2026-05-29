@@ -1,13 +1,3 @@
-terraform {
-  required_version = ">= 1.6"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.50"
-    }
-  }
-}
-
 data "aws_caller_identity" "current" {}
 
 locals {
@@ -95,7 +85,7 @@ data "aws_iam_policy_document" "key" {
   }
 }
 
-resource "aws_kms_key" "this" {
+resource "aws_kms_key" "cmk" {
   description              = var.description
   deletion_window_in_days  = var.deletion_window_in_days
   enable_key_rotation      = true
@@ -105,7 +95,18 @@ resource "aws_kms_key" "this" {
   tags                     = var.tags
 }
 
-resource "aws_kms_alias" "this" {
+resource "aws_kms_alias" "cmk" {
   name          = "alias/${var.alias}"
-  target_key_id = aws_kms_key.this.key_id
+  target_key_id = aws_kms_key.cmk.key_id
+}
+
+# Renommage this -> cmk (nom representatif), sans recreation.
+moved {
+  from = aws_kms_key.this
+  to   = aws_kms_key.cmk
+}
+
+moved {
+  from = aws_kms_alias.this
+  to   = aws_kms_alias.cmk
 }

@@ -1,157 +1,54 @@
-module "kms_cloudtrail" {
-  source = "../../modules/kms"
+# ──────────────────────────────────────────────────────────────────────────
+# Step 3 : CloudTrail (audit des appels API) -> S3 chiffre KMS
+# ──────────────────────────────────────────────────────────────────────────
 
-  alias       = "${var.project_name}/cloudtrail"
-  description = "KMS key for CloudTrail logs encryption"
+module "cloudtrail" {
+  source = "../../modules/cloudtrail"
 
-  key_admin_arns     = [local.caller_arn]
-  service_principals = ["cloudtrail.amazonaws.com"]
-
-  tags = {
-    Purpose = "cloudtrail"
-  }
+  kms_alias      = "${var.project_name}/cloudtrail"
+  bucket_name    = var.cloudtrail_bucket_name
+  trail_name     = var.cloudtrail_trail_name
+  account_id     = local.account_id
+  kms_admin_arns = [local.caller_arn]
 }
 
-import {
-  to = aws_s3_bucket.cloudtrail
-  id = var.cloudtrail_bucket_name
+# ── Relocalisation depuis l'env (0 recreation) ──
+moved {
+  from = module.kms_cloudtrail
+  to   = module.cloudtrail.module.kms
 }
 
-resource "aws_s3_bucket" "cloudtrail" {
-  bucket = var.cloudtrail_bucket_name
+moved {
+  from = aws_s3_bucket.cloudtrail
+  to   = module.cloudtrail.aws_s3_bucket.logs
 }
 
-import {
-  to = aws_s3_bucket_public_access_block.cloudtrail
-  id = var.cloudtrail_bucket_name
+moved {
+  from = aws_s3_bucket_public_access_block.cloudtrail
+  to   = module.cloudtrail.aws_s3_bucket_public_access_block.logs
 }
 
-resource "aws_s3_bucket_public_access_block" "cloudtrail" {
-  bucket                  = aws_s3_bucket.cloudtrail.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+moved {
+  from = aws_s3_bucket_server_side_encryption_configuration.cloudtrail
+  to   = module.cloudtrail.aws_s3_bucket_server_side_encryption_configuration.logs
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = local.cloudtrail_kms
-    }
-    bucket_key_enabled = true
-  }
+moved {
+  from = aws_s3_bucket_versioning.cloudtrail
+  to   = module.cloudtrail.aws_s3_bucket_versioning.logs
 }
 
-resource "aws_s3_bucket_versioning" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
+moved {
+  from = aws_s3_bucket_lifecycle_configuration.cloudtrail
+  to   = module.cloudtrail.aws_s3_bucket_lifecycle_configuration.logs
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
-
-  rule {
-    id     = "archive-old-logs"
-    status = "Enabled"
-
-    filter {}
-
-    transition {
-      days          = 90
-      storage_class = "GLACIER"
-    }
-
-    expiration {
-      days = 365
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = 90
-    }
-  }
+moved {
+  from = aws_s3_bucket_policy.cloudtrail
+  to   = module.cloudtrail.aws_s3_bucket_policy.logs
 }
 
-data "aws_iam_policy_document" "cloudtrail_bucket" {
-  statement {
-    sid    = "AWSCloudTrailAclCheck"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["cloudtrail.amazonaws.com"]
-    }
-    actions   = ["s3:GetBucketAcl"]
-    resources = [aws_s3_bucket.cloudtrail.arn]
-  }
-
-  statement {
-    sid    = "AWSCloudTrailWrite"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["cloudtrail.amazonaws.com"]
-    }
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${local.account_id}/*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "s3:x-amz-acl"
-      values   = ["bucket-owner-full-control"]
-    }
-  }
-
-  statement {
-    sid    = "DenyUnencryptedTransport"
-    effect = "Deny"
-    principals {
-      type        = "AWS"
-      identifiers = ["*"]
-    }
-    actions = ["s3:*"]
-    resources = [
-      aws_s3_bucket.cloudtrail.arn,
-      "${aws_s3_bucket.cloudtrail.arn}/*",
-    ]
-    condition {
-      test     = "Bool"
-      variable = "aws:SecureTransport"
-      values   = ["false"]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
-  policy = data.aws_iam_policy_document.cloudtrail_bucket.json
-}
-
-import {
-  to = aws_cloudtrail.audit
-  id = var.cloudtrail_trail_name
-}
-
-resource "aws_cloudtrail" "audit" {
-  name                          = var.cloudtrail_trail_name
-  s3_bucket_name                = aws_s3_bucket.cloudtrail.id
-  include_global_service_events = true
-  is_multi_region_trail         = true
-  enable_log_file_validation    = true
-  kms_key_id                    = local.cloudtrail_kms
-
-  event_selector {
-    read_write_type           = "All"
-    include_management_events = true
-  }
-
-  depends_on = [
-    aws_s3_bucket_policy.cloudtrail,
-    module.kms_cloudtrail,
-  ]
+moved {
+  from = aws_cloudtrail.audit
+  to   = module.cloudtrail.aws_cloudtrail.audit
 }

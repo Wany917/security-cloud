@@ -1,15 +1,15 @@
 output "vpc_id" {
-  value       = aws_vpc.this.id
+  value       = aws_vpc.main.id
   description = "ID du VPC."
 }
 
 output "vpc_arn" {
-  value       = aws_vpc.this.arn
+  value       = aws_vpc.main.arn
   description = "ARN du VPC."
 }
 
 output "vpc_cidr" {
-  value       = aws_vpc.this.cidr_block
+  value       = aws_vpc.main.cidr_block
   description = "CIDR du VPC."
 }
 
@@ -24,6 +24,6 @@ output "private_subnet_id" {
 }
 
 output "igw_id" {
-  value       = aws_internet_gateway.this.id
+  value       = aws_internet_gateway.main.id
   description = "ID de l'Internet Gateway."
 }

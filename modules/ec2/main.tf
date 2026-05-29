@@ -1,13 +1,3 @@
-terraform {
-  required_version = ">= 1.6"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.50"
-    }
-  }
-}
-
 data "aws_ami" "debian_12" {
   most_recent = true
   owners      = ["136693071363"]
@@ -22,7 +12,7 @@ data "aws_ami" "debian_12" {
   }
 }
 
-resource "aws_instance" "this" {
+resource "aws_instance" "web" {
   count = var.deploy ? 1 : 0
 
   ami                         = data.aws_ami.debian_12.id
@@ -33,7 +23,7 @@ resource "aws_instance" "this" {
   associate_public_ip_address = var.associate_public_ip
   user_data                   = var.user_data
 
-  # Correction de la faille centrale du CTF kungfu : IMDSv2 obligatoire.
+  # Correction de la faille centrale du CTF kungfu : IMDSv2.
   # http_tokens=required interdit l'IMDSv1, http_put_response_hop_limit=1
   # empeche un conteneur/process de rebondir vers les credentials du role.
   metadata_options {
@@ -50,4 +40,10 @@ resource "aws_instance" "this" {
   }
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-web" })
+}
+
+# Renommage this -> web (nom representatif), sans recreation.
+moved {
+  from = aws_instance.this
+  to   = aws_instance.web
 }

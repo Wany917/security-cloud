@@ -14,29 +14,8 @@ module "network" {
   map_public_ip       = true
 }
 
-# Import des ressources reseau creees a la main (CLI) lors du Lab 2.
-import {
-  to = module.network.aws_vpc.this
-  id = "vpc-0e854a869b75ffa04"
-}
-
-import {
-  to = module.network.aws_subnet.public
-  id = "subnet-06e3c67d837a9bc59"
-}
-
-import {
-  to = module.network.aws_subnet.private
-  id = "subnet-05eeb6cdb5749f5e5"
-}
-
-import {
-  to = module.network.aws_internet_gateway.this
-  id = "igw-0209a00db4484e80f"
-}
-
 # ──────────────────────────────────────────────────────────────────────────
-# Security groups (micro-segmentation web/db) repris en IaC
+# Security groups (micro-segmentation web/db)
 # ──────────────────────────────────────────────────────────────────────────
 
 module "security_groups" {
@@ -44,16 +23,6 @@ module "security_groups" {
 
   name_prefix = var.legacy_prefix
   vpc_id      = module.network.vpc_id
-}
-
-import {
-  to = module.security_groups.aws_security_group.web
-  id = "sg-0ef012a57a4334c12"
-}
-
-import {
-  to = module.security_groups.aws_security_group.db
-  id = "sg-0494759d808b0aac1"
 }
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -95,6 +64,6 @@ module "ec2_web" {
   deploy                = var.deploy_demo_instance
   subnet_id             = module.network.public_subnet_id
   security_group_ids    = [module.security_groups.web_sg_id]
-  instance_profile_name = module.iam_secretsreader.instance_profile_name
+  instance_profile_name = module.iam.instance_profile_name
   associate_public_ip   = true
 }

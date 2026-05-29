@@ -20,6 +20,21 @@ variable "create_instance_profile" {
   default     = true
 }
 
+variable "analyst_user_name" {
+  type        = string
+  description = "Nom du user IAM analyst (lecture seule)."
+}
+
+variable "least_privilege_policy_name" {
+  type        = string
+  description = "Nom de la policy least-privilege readonly de l'analyst."
+}
+
+variable "boundary_policy_name" {
+  type        = string
+  description = "Nom de la permissions boundary de l'analyst."
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags additionnels."
