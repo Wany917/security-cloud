@@ -120,3 +120,8 @@ output "demo_instance_id" {
   value       = module.ec2_web.instance_id
   description = "ID de l'instance demo IMDSv2 (null si non deployee)."
 }
+
+output "demo_instance_public_ip" {
+  value       = module.ec2_web.public_ip
+  description = "IP publique de l'instance demo (pour rejouer l'attaque)."
+}

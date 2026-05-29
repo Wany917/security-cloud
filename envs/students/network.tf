@@ -63,7 +63,9 @@ module "ec2_web" {
   name_prefix           = var.project_name
   deploy                = var.deploy_demo_instance
   subnet_id             = module.network.public_subnet_id
-  security_group_ids    = [module.security_groups.web_sg_id]
+  security_group_ids    = var.deploy_demo_instance ? aws_security_group.demo_web[*].id : [module.security_groups.web_sg_id]
   instance_profile_name = module.iam.instance_profile_name
   associate_public_ip   = true
+  # DEMO : app vulnerable (SSRF/RCE) pour prouver que l'IMDSv2 bloque le pivot.
+  user_data = var.deploy_demo_instance ? file("${path.module}/demo/vulnerable_app.sh") : null
 }
