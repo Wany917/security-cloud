@@ -25,6 +25,18 @@ variable "traffic_type" {
   default     = "ALL"
 }
 
+variable "enable_access_logging" {
+  type        = bool
+  description = "Active le server access logging du bucket vers access_log_bucket."
+  default     = false
+}
+
+variable "access_log_bucket" {
+  type        = string
+  description = "Bucket cible des logs d'acces S3."
+  default     = null
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags additionnels."

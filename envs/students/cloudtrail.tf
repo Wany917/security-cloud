@@ -5,11 +5,14 @@
 module "cloudtrail" {
   source = "../../modules/cloudtrail"
 
-  kms_alias      = "${var.project_name}/cloudtrail"
-  bucket_name    = var.cloudtrail_bucket_name
-  trail_name     = var.cloudtrail_trail_name
-  account_id     = local.account_id
-  kms_admin_arns = [local.caller_arn]
+  kms_alias              = "${var.project_name}/cloudtrail"
+  bucket_name            = var.cloudtrail_bucket_name
+  trail_name             = var.cloudtrail_trail_name
+  account_id             = local.account_id
+  kms_admin_arns         = [local.caller_arn]
+  enable_access_logging  = true
+  access_log_bucket      = module.s3_access_logs.bucket
+  data_event_bucket_arns = local.data_event_bucket_arns
 }
 
 # ── Relocalisation depuis l'env (0 recreation) ──

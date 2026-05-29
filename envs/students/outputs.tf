@@ -110,6 +110,11 @@ output "logs_archive_bucket" {
   description = "Bucket S3 d'archivage des logs reseau."
 }
 
+output "s3_access_logs_bucket" {
+  value       = module.s3_access_logs.bucket
+  description = "Bucket central des logs d'acces S3."
+}
+
 # ── EC2 demo ──
 output "demo_instance_id" {
   value       = module.ec2_web.instance_id

@@ -24,6 +24,24 @@ variable "kms_admin_arns" {
   default     = []
 }
 
+variable "enable_access_logging" {
+  type        = bool
+  description = "Active le server access logging du bucket vers access_log_bucket."
+  default     = false
+}
+
+variable "access_log_bucket" {
+  type        = string
+  description = "Bucket cible des logs d'acces S3."
+  default     = null
+}
+
+variable "data_event_bucket_arns" {
+  type        = list(string)
+  description = "ARNs des buckets dont on capture les data events S3 (acces objets) dans CloudTrail."
+  default     = []
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags additionnels."

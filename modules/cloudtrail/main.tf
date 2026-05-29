@@ -44,6 +44,14 @@ resource "aws_s3_bucket_versioning" "logs" {
   }
 }
 
+# Server access logging du bucket CloudTrail vers le bucket central.
+resource "aws_s3_bucket_logging" "logs" {
+  count         = var.enable_access_logging ? 1 : 0
+  bucket        = aws_s3_bucket.logs.id
+  target_bucket = var.access_log_bucket
+  target_prefix = "${var.bucket_name}/"
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   bucket = aws_s3_bucket.logs.id
 
@@ -133,6 +141,16 @@ resource "aws_cloudtrail" "audit" {
   event_selector {
     read_write_type           = "All"
     include_management_events = true
+
+    # Data events S3 : trace les acces objets (GetObject/PutObject) sur les
+    # buckets sensibles. Repond a la faille du CTF (bucket lu en douce).
+    dynamic "data_resource" {
+      for_each = length(var.data_event_bucket_arns) > 0 ? [1] : []
+      content {
+        type   = "AWS::S3::Object"
+        values = [for arn in var.data_event_bucket_arns : "${arn}/"]
+      }
+    }
   }
 
   depends_on = [

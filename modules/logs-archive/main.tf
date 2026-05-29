@@ -38,6 +38,13 @@ resource "aws_s3_bucket_versioning" "archive" {
   }
 }
 
+resource "aws_s3_bucket_logging" "archive" {
+  count         = var.enable_access_logging ? 1 : 0
+  bucket        = aws_s3_bucket.archive.id
+  target_bucket = var.access_log_bucket
+  target_prefix = "${aws_s3_bucket.archive.id}/"
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "archive" {
   bucket = aws_s3_bucket.archive.id
   rule {
