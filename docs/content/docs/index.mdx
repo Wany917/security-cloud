@@ -1,0 +1,43 @@
+---
+title: Vue d'ensemble
+description: Du CTF kungfu à une landing zone AWS Zero Trust en Terraform.
+---
+
+Ce projet part d'un **challenge offensif** (un CTF nommé `kungfu`) et le retourne :
+au lieu d'attaquer, on **reconstruit et durcit** l'infrastructure AWS en Terraform pour que
+chaque maillon de l'attaque devienne inopérant. Le résultat est une **landing zone Zero
+Trust** complète, reproductible et testée par une CI/CD.
+
+## Le point de départ : la chaîne d'attaque
+
+Le CTF reproduisait une application web vulnérable sur AWS, dont l'exploitation suivait la
+chaîne classique vue en cours (et identique à la fuite Capital One de 2019).
+
+![Chaîne d'attaque du CTF kungfu](/img/kill-chain.png)
+
+Une faille applicative (SSRF) permet de joindre le service de métadonnées de l'instance,
+d'en voler les identifiants, puis de rebondir vers un stockage contenant des clés en clair,
+jusqu'à se fabriquer un administrateur.
+
+## La réponse : durcir chaque couche
+
+<Cards>
+  <Card title="Architecture" href="/docs/architecture" description="Modules Terraform et organisation Zero Trust." />
+  <Card title="Secrets (KMS + SOPS)" href="/docs/secrets" description="Plus aucun secret en clair." />
+  <Card title="Réseau" href="/docs/reseau" description="Micro-segmentation et IMDSv2." />
+  <Card title="Observabilité" href="/docs/observabilite" description="Journalisation et alerting." />
+  <Card title="IAM" href="/docs/iam" description="Moindre privilège et boundaries." />
+  <Card title="CI/CD & bonus" href="/docs/cicd" description="OIDC, remote state, SAST." />
+</Cards>
+
+## Principes directeurs
+
+- **Never trust, always verify** : aucune confiance implicite, même à l'intérieur du réseau.
+- **Moindre privilège** : chaque identité n'a que les droits strictement nécessaires.
+- **Assume breach** : on suppose l'attaquant déjà entré, donc on cloisonne et on journalise.
+
+<Callout title="Tout est en Infrastructure as Code">
+L'intégralité de l'infrastructure est décrite en Terraform, versionnée, et reprise par
+`import` (aucune ressource recréée à l'aveugle). On peut détruire puis redéployer à
+l'identique en quelques minutes.
+</Callout>

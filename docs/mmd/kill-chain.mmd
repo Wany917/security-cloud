@@ -1,0 +1,7 @@
+flowchart LR
+    A[Formulaire web<br/>curl] -->|SSRF| B[127.0.0.1]
+    B -->|RCE| C[Shell www-data]
+    C -->|IMDSv1| D[Credentials STS<br/>du role EC2]
+    D -->|role trop large| E[(Bucket S3<br/>cles IAM en clair)]
+    E --> F[Creds permanentes]
+    F -->|policy cachee| G[Creation fake-admin]

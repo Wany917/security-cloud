@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph ID[Identite]
+      direction LR
+      AN[analyst<br/>read-only + boundary]
+      SR[role secretsreader<br/>fyc/* only]
+    end
+    subgraph NET[Reseau]
+      direction LR
+      PUB[Subnet public<br/>SG web 80/443]
+      PRIV[Subnet prive<br/>SG db depuis web]
+      EC2[EC2 IMDSv2 requis]
+    end
+    subgraph DATA[Donnees]
+      direction LR
+      KMS[(KMS)]
+      SOPS[SOPS secrets chiffres]
+    end
+    subgraph OBS[Observabilite]
+      direction LR
+      CT[CloudTrail -> S3]
+      FL[Flow logs]
+      AL[Alarmes -> SNS]
+    end
+    ID --> NET --> DATA --> OBS

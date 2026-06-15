@@ -1,0 +1,47 @@
+---
+title: Architecture
+description: Organisation Terraform modulaire de la landing zone Zero Trust.
+---
+
+L'infrastructure est découpée en **modules réutilisables**, assemblés par un environnement
+(`envs/students`) qui ne fait que les instancier et les câbler. Chaque module porte une
+responsabilité unique.
+
+![Architecture durcie par pilier Zero Trust](/img/hardened-arch.png)
+
+## Les modules
+
+| Module | Rôle |
+|---|---|
+| `network` | VPC, subnets public/privé, routing, IGW (NAT optionnel) |
+| `security-groups` | Pare-feux web/db (micro-segmentation) |
+| `ec2` | Instance durcie (IMDSv2 obligatoire) |
+| `kms` | Clés de chiffrement réutilisables + politiques |
+| `sops` | Utilisateur applicatif + clé KMS pour les secrets |
+| `iam` | Utilisateur analyst (read-only + boundary) + rôle machine |
+| `cloudtrail` | Bucket + trail d'audit chiffrés |
+| `logging` | VPC flow logs vers CloudWatch |
+| `logs-archive` | VPC flow logs vers S3 (archivage) |
+| `s3-access-logs` | Journalisation des accès aux buckets |
+| `alerting` | Metric filters + alarmes CloudWatch vers SNS |
+| `github-oidc` | Fédération OIDC GitHub Actions |
+| `tf-backend` | Backend distant (state S3 + verrou DynamoDB) |
+
+## Le fil rouge : importer, pas recréer
+
+Une partie de l'infrastructure existait déjà (créée à la main lors des premiers labs). Plutôt
+que de la détruire, on l'a **adoptée** dans Terraform avec des blocs `import {}`, puis
+réorganisée en modules avec des blocs `moved {}`. Bilan des opérations : de nombreux
+déplacements, **zéro destruction**.
+
+```text
+Apply complete! Resources: 9 imported, 12 added, 0 destroyed.
+...
+Plan: 0 to add, 0 to change, 0 to destroyed.   # refactor en modules : que des "moved"
+```
+
+<Callout type="info" title="Pourquoi modulaire">
+Un module est une brique générique (« un VPC », « une clé KMS »). L'environnement est le
+plan de montage. Cette séparation rend l'infra lisible, auditable et rejouable, et c'est ce
+qui permet de l'intégrer à une CI/CD.
+</Callout>

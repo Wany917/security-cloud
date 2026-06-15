@@ -1,0 +1,54 @@
+---
+title: Réseau (micro-segmentation, IMDSv2)
+description: Cloisonner pour empêcher le mouvement latéral, et fermer le pivot IMDS.
+---
+
+L'objectif réseau est d'empêcher le **mouvement latéral** : une ressource compromise ne doit
+pas servir de tremplin vers les autres.
+
+## Micro-segmentation
+
+On découpe un VPC en sous-réseaux et on n'autorise entre eux que le strict nécessaire, via
+des **security groups** en refus par défaut.
+
+- `fyc-sg-web` : accepte le trafic web (80/443) depuis internet.
+- `fyc-sg-db` : accepte **uniquement** le port de la base, et **seulement depuis le SG web**.
+
+Conséquence : même en connaissant l'adresse de la base, un attaquant ne peut pas l'atteindre
+directement depuis internet. La base ne dialogue qu'avec le tier web.
+
+```hcl
+# le SG de la base reference le SG web, pas une plage d'adresses
+ingress {
+  from_port       = 5432
+  to_port         = 5432
+  protocol        = "tcp"
+  security_groups = [aws_security_group.web.id]
+}
+```
+
+## IMDSv2 : fermer le pivot du CTF
+
+C'est **la** correction centrale. Une instance EC2 expose ses identifiants sur une adresse
+interne (`169.254.169.254`). En **IMDSv1**, n'importe quel SSRF peut les lire. En **IMDSv2**,
+il faut d'abord obtenir un jeton par une requête PUT, hors de portée d'un SSRF basique.
+
+```hcl
+metadata_options {
+  http_tokens                 = "required" # IMDSv2 obligatoire, IMDSv1 interdit
+  http_put_response_hop_limit = 1          # empeche un conteneur de rebondir
+}
+```
+
+Vérification en direct sur l'instance déployée :
+
+```text
+HttpTokens   = required
+HopLimit     = 1
+```
+
+<Callout type="warn" title="Avant / après">
+Sur le CTF (IMDSv1), une requête SSRF vers le service de métadonnées renvoyait le rôle puis
+ses identifiants. Sur l'infrastructure durcie (IMDSv2), la même requête renvoie
+`401 Unauthorized` : la chaîne d'attaque se brise.
+</Callout>

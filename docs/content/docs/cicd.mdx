@@ -1,0 +1,52 @@
+---
+title: CI/CD & bonus
+description: Pipeline GitHub Actions sans clé statique, remote state, et SAST.
+---
+
+L'infrastructure étant du code, on lui applique les mêmes garde-fous qu'à du code
+applicatif.
+
+## OIDC : une CI sans clé statique
+
+La CI s'authentifie à AWS par **fédération OIDC** : un rôle (`github-actions-terraform`)
+assumable **uniquement** par le dépôt autorisé, via un jeton temporaire. Aucune clé d'accès
+AWS n'est stockée dans GitHub.
+
+```hcl
+condition {
+  test     = "StringLike"
+  variable = "token.actions.githubusercontent.com:sub"
+  values   = ["repo:Wany917/security-cloud:*"] # ce dépôt uniquement
+}
+```
+
+## Remote state verrouillé
+
+Le state Terraform (qui contient des secrets) vit dans un **bucket S3** chiffré et versionné,
+avec un **verrou DynamoDB** pour empêcher deux applies concurrents de le corrompre.
+
+## Garde-fous automatiques
+
+- **pre-commit** : `terraform fmt`, `validate`, `tflint`, **`tfsec`**, et détection de secrets
+  / clés privées avant chaque commit.
+- **GitHub Actions** : `fmt` + `tfsec` à chaque push, puis `terraform plan` commenté sur les
+  pull requests.
+- **SAST applicatif (semgrep)** : scanne le code de l'app. Sur la version vulnérable du CTF,
+  semgrep lève bien la RCE (`system($command)`) ; sur la version corrigée, il ne lève rien.
+
+```text
+app/index.php
+  php.lang.security.injection.tainted-exec  (Blocking)
+  12| $output = system($command);   ← RCE détectée avant tout déploiement
+```
+
+<Callout type="info" title="baseline exclue du scan">
+Le dossier `baseline/` reproduit volontairement l'infra vulnérable du CTF (référence). Il est
+exclu du scan tfsec, sinon le pipeline resterait rouge à cause de failles intentionnelles.
+</Callout>
+
+## Bilan de conformité
+
+Les quatre axes du cahier des charges sont couverts : **secrets**, **réseau**, **logs &
+alerting**, **IAM hardening**, plus les bonus (CI OIDC, remote state, SAST, journalisation
+avancée).

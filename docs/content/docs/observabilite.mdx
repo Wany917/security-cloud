@@ -1,0 +1,40 @@
+---
+title: Observabilité (logs & alerting)
+description: Tout tracer, puis alerter en quasi temps réel sur les événements sensibles.
+---
+
+« Assume breach » : sans journalisation exploitable, il n'y a ni détection ni réponse. On
+trace tout, puis on **alerte**.
+
+## Journalisation
+
+- **CloudTrail** : tous les appels d'API du compte, multi-région, chiffré KMS, fichiers
+  versionnés et validés en intégrité, livrés sur S3.
+- **VPC Flow Logs** : tout le trafic réseau, livré à la fois vers **CloudWatch** (temps réel)
+  et vers **S3** (archivage).
+- **S3 access logging + data events CloudTrail** : on trace nominativement les accès aux
+  buckets sensibles, dont le bucket de state qui contient des secrets.
+
+## Alerting
+
+Journaliser ne suffit pas. CloudTrail est aussi livré vers **CloudWatch Logs**, où des
+**metric filters** déclenchent des **alarmes** envoyées sur un **topic SNS** (abonnement
+e-mail).
+
+![Chaîne d'alerting : CloudTrail vers CloudWatch vers alarmes vers SNS](/img/alerting.png)
+
+Cinq alarmes couvrent les événements critiques :
+
+| Alarme | Déclencheur |
+|---|---|
+| `root_usage` | utilisation du compte root |
+| `unauthorized_api` | appels refusés (AccessDenied) |
+| `iam_changes` | création d'utilisateur, attachement de policy, clé d'accès |
+| `cloudtrail_tampering` | StopLogging, DeleteTrail |
+| `tfstate_read` | `GetObject` sur le bucket de state (= vol de secrets) |
+
+<Callout title="Testé en réel">
+L'alarme `root_usage` a capté un appel API root réel et envoyé un e-mail via SNS : la chaîne
+complète (event → metric filter → alarme → SNS → mail) est prouvée fonctionnelle. L'alarme
+`tfstate_read` correspond exactement au geste de vol de secrets du scénario CTF.
+</Callout>

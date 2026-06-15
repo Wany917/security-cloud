@@ -1,0 +1,6 @@
+flowchart LR
+    CT[CloudTrail<br/>events + data events] --> CW[CloudWatch Logs]
+    CW --> MF[Metric filters]
+    MF --> AL{Alarmes}
+    AL -->|root, IAM, AccessDenied,<br/>lecture du state| SNS[Topic SNS]
+    SNS --> MAIL[Email operateur]

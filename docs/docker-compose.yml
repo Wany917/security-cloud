@@ -1,0 +1,23 @@
+# Déploiement Dokploy en mode "Docker Compose".
+# Build l'image depuis le Dockerfile et expose le service sur le port 3000.
+# Le domaine + TLS sont gérés par l'onglet Domains de Dokploy (Traefik), donc
+# pas de labels ici. Le service rejoint dokploy-network pour que Traefik l'atteigne.
+
+services:
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    expose:
+      - "3000"
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

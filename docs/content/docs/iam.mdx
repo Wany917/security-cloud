@@ -1,0 +1,46 @@
+---
+title: IAM (moindre privilège)
+description: Borner chaque identité, humaine ou machine, à son strict besoin.
+---
+
+Dans le cloud, l'identité est le vrai périmètre. Le CTF se terminait par l'abus d'une
+autorisation excessive permettant à un compte d'en créer un autre, administrateur. On ferme
+cette classe d'erreurs.
+
+## Utilisateur analyst : read-only + boundary
+
+L'utilisateur `fyc-analyst` n'a que des droits de lecture. À cela s'ajoute une **permissions
+boundary**, un plafond de droits infranchissable : même si on lui attachait par erreur une
+policy trop large, la boundary l'empêche de dépasser la lecture seule.
+
+```hcl
+# extrait de la boundary : deny explicite sur toute écriture IAM
+statement {
+  sid       = "DenyAnyIAMWrite"
+  effect    = "Deny"
+  actions   = ["iam:*"]
+  resources = ["*"]
+}
+```
+
+## Rôle machine à permission unique
+
+Le rôle attaché à l'EC2 (`fyc-ec2-secretsreader`) ne peut lire **que** les secrets dont le
+nom commence par `fyc/`, rien d'autre. Si une faille permettait d'en voler les identifiants
+(ce que l'IMDSv2 empêche déjà), l'attaquant n'hériterait que de ce périmètre minuscule.
+
+```hcl
+actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+resources = ["arn:aws:secretsmanager:eu-west-3:<account>:secret:fyc/*"]
+```
+
+## Resource policies restrictives
+
+Les ressources critiques (clés KMS, buckets de logs) portent des **politiques de ressources**
+qui n'autorisent que le strict nécessaire, par exemple un refus de toute connexion non
+chiffrée (`aws:SecureTransport = false`).
+
+<Callout title="Lien avec le CTF">
+La combinaison moindre privilège + permissions boundary + rôles dédiés rend impossible
+l'escalade finale du challenge.
+</Callout>
