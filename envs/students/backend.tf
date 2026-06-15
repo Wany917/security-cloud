@@ -6,11 +6,8 @@
 # ──────────────────────────────────────────────────────────────────────────
 
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "${var.project_name}-tfstate-${local.account_id}"
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  bucket        = "${var.project_name}-tfstate-${local.account_id}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "tfstate" {

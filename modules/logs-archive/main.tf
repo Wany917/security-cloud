@@ -20,7 +20,8 @@ module "kms_archive" {
 }
 
 resource "aws_s3_bucket" "archive" {
-  bucket = "${var.name_prefix}-logs-archive-${var.account_id}"
+  bucket        = "${var.name_prefix}-logs-archive-${var.account_id}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "archive" {
