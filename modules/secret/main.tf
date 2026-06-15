@@ -1,14 +1,11 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Step 3 (volet alerting) : metric filters + alarmes CloudWatch -> SNS.
-# CloudTrail est livre vers le log group cree ici (voir cloudtrail.tf).
+# Secret applicatif repris en IaC : on gere uniquement le CONTENEUR.
+# La valeur (plaintext) reste hors-state, injectee via SOPS/CI, pour ne jamais
+# faire transiter le secret en clair par le state Terraform.
 # ──────────────────────────────────────────────────────────────────────────
 
-module "alerting" {
-  source = "../../modules/alerting"
-
-  name_prefix         = var.project_name
-  account_id          = local.account_id
-  kms_key_arn         = module.kms_logs.key_arn
-  tfstate_bucket_name = module.tf_backend.bucket
-  alert_email         = var.alert_email
+resource "aws_secretsmanager_secret" "this" {
+  name        = var.name
+  description = var.description
+  tags        = var.tags
 }

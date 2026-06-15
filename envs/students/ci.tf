@@ -1,54 +1,25 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Partie 3 : CI/CD reelle - federation OIDC GitHub Actions (pas de cle statique)
+# Bonus : federation OIDC GitHub Actions (CI/CD sans cle statique)
 # ──────────────────────────────────────────────────────────────────────────
 
-# Provider OIDC GitHub : permet aux workflows d'assumer un role AWS sans secret.
-resource "aws_iam_openid_connect_provider" "github" {
-  url            = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
-  ]
+module "github_oidc" {
+  source = "../../modules/github-oidc"
 
-  tags = {
-    Purpose = "github-actions-oidc"
-  }
+  github_repo = var.github_repo
 }
 
-data "aws_iam_policy_document" "github_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-
-    principals {
-      type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-
-    # Scope au repo uniquement : seul ce depot peut assumer le role.
-    condition {
-      test     = "StringLike"
-      variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
-    }
-  }
+# ── Relocalisation depuis l'env (0 recreation) ──
+moved {
+  from = aws_iam_openid_connect_provider.github
+  to   = module.github_oidc.aws_iam_openid_connect_provider.github
 }
 
-resource "aws_iam_role" "github_actions_terraform" {
-  name               = "github-actions-terraform"
-  description        = "Role assume par GitHub Actions pour terraform plan (read-only)."
-  assume_role_policy = data.aws_iam_policy_document.github_assume.json
+moved {
+  from = aws_iam_role.github_actions_terraform
+  to   = module.github_oidc.aws_iam_role.this
 }
 
-# Read-only suffit pour `terraform plan` (refresh). L'apply reste manuel/local.
-resource "aws_iam_role_policy_attachment" "github_readonly" {
-  role       = aws_iam_role.github_actions_terraform.name
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+moved {
+  from = aws_iam_role_policy_attachment.github_readonly
+  to   = module.github_oidc.aws_iam_role_policy_attachment.readonly
 }

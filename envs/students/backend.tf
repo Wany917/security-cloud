@@ -1,79 +1,50 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Backend distant : bucket S3 (state) + table DynamoDB (lock)
-# PHASE 1 : ces ressources sont creees AVANT d'activer le backend S3.
-#           Une fois appliquees, decommenter le bloc backend dans providers.tf
-#           puis lancer : terraform init -migrate-state
+# Backend distant : bucket S3 (state) + table DynamoDB (lock) + acces CI.
+# Une fois applique, decommenter le bloc backend "s3" dans providers.tf
+# puis lancer : terraform init -migrate-state
 # ──────────────────────────────────────────────────────────────────────────
 
-resource "aws_s3_bucket" "tfstate" {
-  bucket        = "${var.project_name}-tfstate-${local.account_id}"
-  force_destroy = true
+module "tf_backend" {
+  source = "../../modules/tf-backend"
+
+  bucket_name       = "${var.project_name}-tfstate-${local.account_id}"
+  table_name        = "${var.project_name}-tflock"
+  ci_role_name      = module.github_oidc.role_name
+  access_log_bucket = module.s3_access_logs.bucket
 }
 
-resource "aws_s3_bucket_versioning" "tfstate" {
-  bucket = aws_s3_bucket.tfstate.id
-  versioning_configuration {
-    status = "Enabled"
-  }
+# ── Relocalisation depuis l'env (0 recreation) ──
+moved {
+  from = aws_s3_bucket.tfstate
+  to   = module.tf_backend.aws_s3_bucket.state
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
-  bucket = aws_s3_bucket.tfstate.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "aws:kms"
-    }
-    bucket_key_enabled = true
-  }
+moved {
+  from = aws_s3_bucket_versioning.tfstate
+  to   = module.tf_backend.aws_s3_bucket_versioning.state
 }
 
-resource "aws_s3_bucket_public_access_block" "tfstate" {
-  bucket                  = aws_s3_bucket.tfstate.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+moved {
+  from = aws_s3_bucket_server_side_encryption_configuration.tfstate
+  to   = module.tf_backend.aws_s3_bucket_server_side_encryption_configuration.state
 }
 
-resource "aws_dynamodb_table" "tflock" {
-  name         = "${var.project_name}-tflock"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
+moved {
+  from = aws_s3_bucket_public_access_block.tfstate
+  to   = module.tf_backend.aws_s3_bucket_public_access_block.state
 }
 
-# Acces au state pour le role CI (read state + lock CRUD, suffisant pour plan).
-data "aws_iam_policy_document" "github_state" {
-  statement {
-    sid       = "ListStateBucket"
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.tfstate.arn]
-  }
-  statement {
-    sid       = "ReadState"
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.tfstate.arn}/*"]
-  }
-  statement {
-    sid    = "LockTable"
-    effect = "Allow"
-    actions = [
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:DeleteItem",
-    ]
-    resources = [aws_dynamodb_table.tflock.arn]
-  }
+moved {
+  from = aws_dynamodb_table.tflock
+  to   = module.tf_backend.aws_dynamodb_table.lock
 }
 
-resource "aws_iam_role_policy" "github_state" {
-  name   = "tfstate-access"
-  role   = aws_iam_role.github_actions_terraform.id
-  policy = data.aws_iam_policy_document.github_state.json
+moved {
+  from = aws_iam_role_policy.github_state
+  to   = module.tf_backend.aws_iam_role_policy.ci_state_access[0]
+}
+
+moved {
+  from = aws_s3_bucket_logging.tfstate
+  to   = module.tf_backend.aws_s3_bucket_logging.state[0]
 }

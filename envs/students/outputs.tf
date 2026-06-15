@@ -64,7 +64,7 @@ output "secretsreader_instance_profile" {
 }
 
 output "fyc_db_secret_arn" {
-  value       = aws_secretsmanager_secret.fyc_db.arn
+  value       = module.secret.arn
   description = "ARN du secret BDD repris en IaC."
 }
 
