@@ -139,6 +139,10 @@ resource "aws_cloudtrail" "audit" {
   enable_log_file_validation    = true
   kms_key_id                    = module.kms.key_arn
 
+  # Livraison optionnelle vers CloudWatch Logs (pour metric filters + alarmes).
+  cloud_watch_logs_group_arn = var.cloudwatch_logs_group_arn != null ? "${var.cloudwatch_logs_group_arn}:*" : null
+  cloud_watch_logs_role_arn  = var.cloudwatch_logs_role_arn
+
   event_selector {
     read_write_type           = "All"
     include_management_events = true

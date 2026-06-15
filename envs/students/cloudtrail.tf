@@ -13,6 +13,10 @@ module "cloudtrail" {
   enable_access_logging  = true
   access_log_bucket      = module.s3_access_logs.bucket
   data_event_bucket_arns = local.data_event_bucket_arns
+
+  # Livraison vers CloudWatch Logs pour les metric filters / alarmes (module alerting).
+  cloudwatch_logs_group_arn = module.alerting.trail_log_group_arn
+  cloudwatch_logs_role_arn  = module.alerting.cloudtrail_cw_role_arn
 }
 
 # ── Relocalisation depuis l'env (0 recreation) ──

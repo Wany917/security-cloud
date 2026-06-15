@@ -42,6 +42,18 @@ variable "data_event_bucket_arns" {
   default     = []
 }
 
+variable "cloudwatch_logs_group_arn" {
+  type        = string
+  description = "ARN du log group CloudWatch (sans :*) vers lequel livrer les events. null = pas de livraison CloudWatch."
+  default     = null
+}
+
+variable "cloudwatch_logs_role_arn" {
+  type        = string
+  description = "ARN du role assume par CloudTrail pour ecrire dans CloudWatch Logs."
+  default     = null
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags additionnels."

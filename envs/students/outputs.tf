@@ -115,6 +115,17 @@ output "s3_access_logs_bucket" {
   description = "Bucket central des logs d'acces S3."
 }
 
+# ── Alerting ──
+output "security_alerts_topic_arn" {
+  value       = module.alerting.sns_topic_arn
+  description = "ARN du topic SNS des alertes de securite."
+}
+
+output "security_alarms" {
+  value       = module.alerting.alarm_names
+  description = "Liste des alarmes CloudWatch de securite."
+}
+
 # ── EC2 demo ──
 output "demo_instance_id" {
   value       = module.ec2_web.instance_id

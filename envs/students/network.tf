@@ -35,8 +35,12 @@ module "kms_logs" {
   alias       = "${var.project_name}/vpc-logs"
   description = "KMS key for VPC flow logs CloudWatch encryption"
 
-  key_admin_arns     = [local.caller_arn]
-  service_principals = ["logs.${var.region}.amazonaws.com"]
+  key_admin_arns = [local.caller_arn]
+  service_principals = [
+    "logs.${var.region}.amazonaws.com",
+    "cloudwatch.amazonaws.com",
+    "sns.amazonaws.com",
+  ]
 
   tags = {
     Purpose = "vpc-flow-logs"

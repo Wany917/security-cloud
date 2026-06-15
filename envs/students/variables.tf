@@ -63,3 +63,9 @@ variable "github_repo" {
   description = "Slug OWNER/REPO autorise a assumer le role CI via OIDC."
   default     = "Wany917/security-cloud"
 }
+
+variable "alert_email" {
+  type        = string
+  description = "E-mail abonne aux alertes de securite SNS (vide = topic seul, sans abonnement)."
+  default     = ""
+}
