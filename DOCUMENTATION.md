@@ -196,9 +196,18 @@ de réponse à incident.
 Tout est chiffré et conservé. Un attaquant ne peut ni lire les logs (chiffrement), ni les
 effacer discrètement (versioning + bucket verrouillé).
 
+Mais journaliser ne suffit pas, il faut **alerter**. CloudTrail est donc aussi livré vers
+**CloudWatch Logs**, sur lequel sont posés des **metric filters** qui déclenchent des
+**alarmes** envoyées sur un **topic SNS** (avec abonnement e-mail). Cinq alarmes couvrent les
+événements sensibles : usage du compte **root**, **appels API non autorisés** (AccessDenied),
+**modifications IAM**, **altération de CloudTrail**, et surtout la **lecture du bucket de
+state** (un `GetObject` sur le bucket qui contient des secrets), c'est-à-dire exactement le
+geste de vol de secrets du scénario CTF. On passe ainsi de « je journalise » à « je suis
+prévenu en quasi temps réel ».
+
 > Note d'environnement : le chemin canonique « CloudWatch Logs → S3 » passe par **Kinesis
 > Firehose**, mais le compte student le bloque (`SubscriptionRequiredException`). On obtient
-> le même résultat — logs réseau archivés dans S3 — via la **livraison native S3 des flow
+> le même résultat, logs réseau archivés dans S3, via la **livraison native S3 des flow
 > logs**, gratuite et supportée partout.
 
 ---
@@ -302,9 +311,9 @@ sops -d envs/students/secrets.enc.yaml      # pour relire/éditer (nécessite le
 |---|---|
 | 1 — Secrets (KMS + SOPS) | [Done] (secret chiffré + round-trip prouvé) |
 | 2 — Réseau (VPC, SG, IMDSv2) | [Done] (EC2 `i-021f9eb2...` déployée, `http_tokens=required` vérifié live) |
-| 3 — Logs | [Done] (CloudTrail→S3, flow logs→CloudWatch **et** →S3) |
+| 3 — Logs **& alerting** | [Done] (CloudTrail→S3, flow logs→CloudWatch+S3, **alerting CloudWatch→alarmes→SNS**) |
 | 4 — IAM hardening | [Done] |
-| Bonus | [Done]TFsec + CI OIDC + remote state + hooks ; static testing applicatif restant (optionnel) |
+| Bonus | [Done] TFsec + CI OIDC + remote state + hooks + **SAST semgrep** + S3 access logging + data events |
 
-Les 4 steps sont couverts. Seul reste, côté bonus, le static testing applicatif (analyse
-du code PHP, optionnel).
+Les 4 steps sont couverts, alerting compris, et les bonus (CI, SAST, journalisation
+avancée) sont en place.
