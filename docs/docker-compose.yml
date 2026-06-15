@@ -1,7 +1,7 @@
 # Déploiement Dokploy en mode "Docker Compose".
-# Build l'image depuis le Dockerfile et expose le service sur le port 3000.
-# Le domaine + TLS sont gérés par l'onglet Domains de Dokploy (Traefik), donc
-# pas de labels ici. Le service rejoint dokploy-network pour que Traefik l'atteigne.
+# Build l'image depuis le Dockerfile (port 3000) et déclare le routage Traefik
+# via labels (méthode fiable en mode Compose : Traefik lit les labels du conteneur).
+# Le service rejoint dokploy-network pour que Traefik puisse l'atteindre.
 
 services:
   docs:
@@ -17,6 +17,19 @@ services:
       - "3000"
     networks:
       - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      # HTTPS (443)
+      - traefik.http.routers.docs-inkwei.rule=Host(`docs.inkwei.com`)
+      - traefik.http.routers.docs-inkwei.entrypoints=websecure
+      - traefik.http.routers.docs-inkwei.tls.certresolver=letsencrypt
+      - traefik.http.services.docs-inkwei.loadbalancer.server.port=3000
+      # HTTP (80) -> HTTPS
+      - traefik.http.routers.docs-inkwei-web.rule=Host(`docs.inkwei.com`)
+      - traefik.http.routers.docs-inkwei-web.entrypoints=web
+      - traefik.http.routers.docs-inkwei-web.middlewares=docs-inkwei-redirect
+      - traefik.http.middlewares.docs-inkwei-redirect.redirectscheme.scheme=https
 
 networks:
   dokploy-network:
