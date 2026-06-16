@@ -58,6 +58,12 @@ variable "deploy_demo_instance" {
   default     = false
 }
 
+variable "enable_firehose_export" {
+  type        = bool
+  description = "Active l'export CloudWatch Logs -> Firehose -> S3 (necessite Firehose actif sur le compte, payant). Off par defaut."
+  default     = false
+}
+
 variable "github_repo" {
   type        = string
   description = "Slug OWNER/REPO autorise a assumer le role CI via OIDC."
