@@ -1,110 +1,115 @@
 ---
 title: Guide du code
-description: Comment le repo est organisé, où trouver quoi, et comment travailler dedans.
+description: Comment le repo est organisé et où trouver chaque chose, expliqué simplement.
 ---
 
-Cette page est le point d'entrée pour l'équipe : où vit chaque chose, comment lancer le
-projet, et les conventions à respecter pour ne rien casser.
+Le repo se lit en deux temps, et une fois que tu as ça en tête tout devient simple.
 
-## Organisation du repo
+D'un côté, le dossier `modules/` contient des **briques** : chaque brique fait une seule
+chose (gérer les clés de chiffrement, monter le réseau, envoyer les alertes…). De l'autre, le
+dossier `envs/students/` est le **plan de montage** : il ne fabrique rien lui-même, il se
+contente d'assembler les briques en leur passant les bons réglages. La règle à retenir : on ne
+crée jamais une ressource directement dans le plan de montage, on appelle une brique.
 
-```text
-.
-├── app/              # l'application du CTF (vulnérable + corrigée) — scannée par semgrep
-├── baseline/         # l'infra vulnérable reproduite (référence, exclue de tfsec)
-├── docs/             # cette documentation (Fumadocs)
-├── envs/students/    # la COUCHE DE COMPOSITION : assemble les modules (root Terraform)
-└── modules/          # les BRIQUES réutilisables (une responsabilité chacune)
-```
+Donc quand tu veux modifier quelque chose, tu pars presque toujours d'un fichier dans
+`envs/students/` (le point d'assemblage), qui pointe vers une brique dans `modules/`. Et
+toutes les commandes Terraform se lancent depuis `envs/students/`, parce que c'est là qu'est
+rangé l'état du projet.
 
-Le principe à retenir : **`modules/` = les briques**, **`envs/students/` = le plan de montage**.
-On ne définit jamais une ressource d'infra directement dans `envs/students` ; on appelle un
-module. La couche de composition ne contient que : le provider, les variables, les outputs,
-et les appels de modules.
+## Les secrets et le chiffrement
 
-<Callout title="Le point de départ Terraform">
-Toutes les commandes Terraform se lancent depuis `envs/students/`. C'est là qu'est le state
-et que tout s'assemble.
-</Callout>
+Le cœur de cette partie, c'est une clé de chiffrement gérée par AWS, ce qu'on appelle **KMS**
+(pour *Key Management Service*, le service de clés d'AWS). Cette clé est créée par la brique
+`modules/kms` (la ressource `aws_kms_key`), avec une règle d'accès qui sépare bien ceux qui
+*gèrent* la clé de ceux qui s'en *servent* pour chiffrer.
 
-## Je veux toucher à… → c'est ici
+Par-dessus, on utilise **SOPS**, un petit outil qui chiffre des fichiers de configuration en
+s'appuyant sur cette clé KMS : c'est la brique `modules/sops`. Et quand on a besoin de ranger
+un mot de passe applicatif, on le met dans le coffre à secrets d'AWS (*Secrets Manager*) via
+`modules/secret`, sans jamais écrire sa valeur en clair. Côté plan de montage, tout ça se règle
+dans `sops.tf` et `secret.tf`.
 
-| Sujet | Fichier de composition | Module(s) |
-|---|---|---|
-| Secrets / chiffrement (SOPS, KMS) | `sops.tf`, `secret.tf` | `kms`, `sops`, `secret` |
-| Réseau (VPC, subnets, SG) | `network.tf` | `network`, `security-groups` |
-| EC2 durcie / IMDSv2 | `network.tf` | `ec2` |
-| Journalisation CloudTrail | `cloudtrail.tf` | `cloudtrail` |
-| VPC flow logs | `network.tf` | `logging` |
-| Archivage des logs vers S3 | `logs_export.tf` | `logs-archive` |
-| Logs d'accès S3 | `s3_access_logs.tf` | `s3-access-logs` |
-| Alarmes + mail (SNS) | `alerting.tf` | `alerting` |
-| IAM (users, rôles, boundary) | `iam.tf` | `iam` |
-| CI sans clé statique (OIDC) | `ci.tf` | `github-oidc` |
-| Backend distant (state S3 + lock) | `backend.tf` | `tf-backend` |
-| Démo « rejouer l'attaque » | `demo.tf` | *(au niveau env, gated)* |
-| Variables / outputs / provider | `variables.tf`, `outputs.tf`, `providers.tf`, `main.tf` | — |
+## Le réseau
 
-## Les modules en un coup d'œil
+La brique `modules/network` construit un réseau privé isolé, un **VPC** (*Virtual Private
+Cloud*, ton bout de réseau à toi chez AWS), avec deux zones : une publique, joignable depuis
+internet, et une privée qui ne l'est pas. La brique `modules/security-groups` pose les
+pare-feux (les *security groups*) qui n'ouvrent que les ports strictement nécessaires.
 
-| Module | Rôle |
-|---|---|
-| `kms` | Clé KMS (CMK) + key policy, avec séparation administrateur / utilisateur de clé |
-| `sops` | User + clé KMS dédiés au chiffrement SOPS |
-| `secret` | Conteneur Secrets Manager (la valeur reste hors-state) |
-| `network` | VPC, subnets public/privé, Internet Gateway, NAT, tables de routage |
-| `security-groups` | Security groups web/db (micro-segmentation) |
-| `ec2` | Instance durcie **IMDSv2** (désactivée par défaut) |
-| `iam` | Users analyst/secretsreader, rôles, **permission boundary** |
-| `cloudtrail` | Trail → S3 + CloudWatch, chiffré KMS |
-| `logging` | VPC flow logs → CloudWatch (chiffrés KMS) |
-| `logs-archive` | Archivage des logs vers un bucket S3 |
-| `s3-access-logs` | Bucket central des logs d'accès S3 + data events |
-| `alerting` | Filtres type CIS + alarmes CloudWatch + SNS (mail) |
-| `github-oidc` | Provider OIDC + rôle CI (auth GitHub→AWS sans clé statique) |
-| `tf-backend` | Bucket S3 du state (SSE-KMS, versionné) + verrou DynamoDB |
+La machine elle-même, c'est `modules/ec2` (la ressource `aws_instance`) : une instance durcie
+où on a forcé **IMDSv2**, la version 2 du petit service interne qui donne ses informations à la
+machine. C'est cette version 2 qui bloque le vol d'identifiants via une faille SSRF, parce
+qu'elle exige un échange en deux temps qu'une attaque basique ne sait pas faire. Tout ça se
+branche dans `network.tf`.
+
+## Les journaux et les alertes
+
+**CloudTrail**, le service qui enregistre toutes les actions faites sur le compte AWS, est
+posé par `modules/cloudtrail` : il écrit à la fois dans un stockage **S3** et dans
+**CloudWatch** (le service de surveillance d'AWS). Les flux réseau, eux, sont tracés par
+`modules/logging`.
+
+Et surtout, `modules/alerting` surveille les comportements louches (une connexion avec le
+compte root, des actions refusées en série, une modification de droits, une tentative de couper
+les journaux…) et t'envoie un mail dès que l'un d'eux se produit, grâce à **SNS** (le service de
+notifications d'AWS). Tu retrouves ces deux parties dans `cloudtrail.tf` et `alerting.tf`.
+
+## Les droits (IAM)
+
+**IAM** (*Identity and Access Management*, la gestion des utilisateurs et de leurs droits chez
+AWS) vit dans `modules/iam`. L'idée tient en deux mots : chaque identité n'a que le strict
+nécessaire, et on pose au-dessus une *permission boundary*, c'est-à-dire un plafond de droits
+qu'on ne peut jamais dépasser même en s'attachant d'autres autorisations. C'est précisément ce
+qui empêche quelqu'un de se fabriquer un compte admin. Réglages dans `iam.tf`.
+
+## Le pipeline et l'état du projet
+
+Pour que GitHub puisse déployer sans qu'on stocke la moindre clé AWS quelque part, on passe par
+**OIDC** : un mécanisme où GitHub prouve son identité à AWS et reçoit en échange un accès
+temporaire, limité à ce dépôt précis. C'est la brique `modules/github-oidc`, branchée dans
+`ci.tf`.
+
+Quant à l'état du projet (le fichier où Terraform note tout ce qu'il a créé), il n'est pas
+laissé sur ton disque : il est rangé dans un stockage S3 chiffré et verrouillé, monté par la
+brique `modules/tf-backend` (`backend.tf`).
 
 ## Lancer le projet
 
 ```bash
 cd envs/students
 
-AWS_PROFILE=wany terraform init     # initialise providers + backend distant
-AWS_PROFILE=wany terraform plan     # vérifie ce qui va changer
+AWS_PROFILE=wany terraform init     # prépare les providers et l'état distant
+AWS_PROFILE=wany terraform plan     # montre ce qui va changer
 AWS_PROFILE=wany terraform apply    # applique
 ```
 
-- **Profil AWS** : `wany` (adapter au compte utilisé).
-- **Région** : `eu-west-3`.
-- **State** : distant (S3 chiffré KMS + verrou DynamoDB). Pas de state en local à committer.
+Le profil AWS utilisé est `wany`, la région est `eu-west-3`, et l'état est distant : il n'y a
+donc pas de fichier d'état à committer.
 
-## Conventions d'équipe (à respecter absolument)
+## Les règles de l'équipe
 
-- **Tout en IaC.** On ne modifie jamais une ressource à la main dans la console AWS : ça crée
-  du *drift* et le prochain `terraform apply` l'écrase. La console, c'est pour **regarder**,
-  pas pour modifier.
-- **Une brique = un module** (responsabilité unique). `envs/students` ne fait qu'assembler.
-- **Refactor sans casse** : pour déplacer/renommer des ressources, on utilise des blocs
-  `moved` → le plan doit afficher `0 to destroy`. Pour reprendre de l'existant, des blocs
-  `import`.
-- **Secrets** : toujours via SOPS (chiffrés, versionnables). Jamais de secret en clair, jamais
-  dans le state.
-- **`terraform fmt`** avant chaque commit (le hook pre-commit le fait pour toi).
+Quelques principes simples, à respecter pour ne rien casser :
 
-## Ajouter une nouvelle brique
+On fait **tout en code**. On ne modifie jamais une ressource à la main dans la console AWS,
+parce que ça crée un écart entre la réalité et le code, et que le prochain `terraform apply`
+écrasera ton clic. La console sert à *regarder*, pas à *modifier*.
 
-1. Créer `modules/<nom>/` avec `main.tf`, `variables.tf`, `outputs.tf`.
-2. L'appeler depuis un `envs/students/<nom>.tf` (passer les variables, récupérer les outputs).
-3. `terraform fmt -recursive` → `validate` → `plan` (vérifier `0 to destroy` si c'est un refactor).
-4. Ouvrir une PR : la CI (`fmt` + `tfsec` + `plan` commenté) tourne automatiquement.
+Quand on veut **déplacer ou renommer** des ressources (par exemple sortir du code dans une
+nouvelle brique), on utilise des blocs `moved` : le plan doit alors afficher `0 to destroy`,
+preuve qu'on réorganise sans rien détruire. Pour reprendre des ressources qui existent déjà, on
+utilise des blocs `import`.
 
-## Garde-fous automatiques
+Enfin, les **secrets passent toujours par SOPS** (chiffrés, donc versionnables sans risque), et
+on lance toujours `terraform fmt` avant de committer (le hook s'en charge tout seul).
 
-- **pre-commit** : `fmt`, `validate`, `tflint`, **`tfsec`**, détection de secrets / clés privées.
-- **CI GitHub Actions** : `fmt` + `tfsec` à chaque push, `plan` commenté sur les PR.
-- **semgrep** : scanne `app/` (lève la RCE sur la version vulnérable, rien sur la corrigée).
+## Carte rapide
 
-<Callout type="info" title="baseline/ exclu du scan">
-`baseline/` reproduit volontairement l'infra vulnérable du CTF (référence). Il est exclu de
-tfsec, sinon le pipeline resterait rouge à cause de failles intentionnelles.
-</Callout>
+Si tu cherches juste où aller, sans relire :
+
+- **Secrets / chiffrement** : `sops.tf`, `secret.tf` → modules `kms`, `sops`, `secret`
+- **Réseau et machine** : `network.tf` → modules `network`, `security-groups`, `ec2`
+- **Journaux** : `cloudtrail.tf` → module `cloudtrail` (et `logging` pour les flux réseau)
+- **Alertes par mail** : `alerting.tf` → module `alerting`
+- **Droits / IAM** : `iam.tf` → module `iam`
+- **CI sans clé (OIDC)** : `ci.tf` → module `github-oidc`
+- **État distant** : `backend.tf` → module `tf-backend`
