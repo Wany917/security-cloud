@@ -1,0 +1,110 @@
+---
+title: Guide du code
+description: Comment le repo est organisé, où trouver quoi, et comment travailler dedans.
+---
+
+Cette page est le point d'entrée pour l'équipe : où vit chaque chose, comment lancer le
+projet, et les conventions à respecter pour ne rien casser.
+
+## Organisation du repo
+
+```text
+.
+├── app/              # l'application du CTF (vulnérable + corrigée) — scannée par semgrep
+├── baseline/         # l'infra vulnérable reproduite (référence, exclue de tfsec)
+├── docs/             # cette documentation (Fumadocs)
+├── envs/students/    # la COUCHE DE COMPOSITION : assemble les modules (root Terraform)
+└── modules/          # les BRIQUES réutilisables (une responsabilité chacune)
+```
+
+Le principe à retenir : **`modules/` = les briques**, **`envs/students/` = le plan de montage**.
+On ne définit jamais une ressource d'infra directement dans `envs/students` ; on appelle un
+module. La couche de composition ne contient que : le provider, les variables, les outputs,
+et les appels de modules.
+
+<Callout title="Le point de départ Terraform">
+Toutes les commandes Terraform se lancent depuis `envs/students/`. C'est là qu'est le state
+et que tout s'assemble.
+</Callout>
+
+## Je veux toucher à… → c'est ici
+
+| Sujet | Fichier de composition | Module(s) |
+|---|---|---|
+| Secrets / chiffrement (SOPS, KMS) | `sops.tf`, `secret.tf` | `kms`, `sops`, `secret` |
+| Réseau (VPC, subnets, SG) | `network.tf` | `network`, `security-groups` |
+| EC2 durcie / IMDSv2 | `network.tf` | `ec2` |
+| Journalisation CloudTrail | `cloudtrail.tf` | `cloudtrail` |
+| VPC flow logs | `network.tf` | `logging` |
+| Archivage des logs vers S3 | `logs_export.tf` | `logs-archive` |
+| Logs d'accès S3 | `s3_access_logs.tf` | `s3-access-logs` |
+| Alarmes + mail (SNS) | `alerting.tf` | `alerting` |
+| IAM (users, rôles, boundary) | `iam.tf` | `iam` |
+| CI sans clé statique (OIDC) | `ci.tf` | `github-oidc` |
+| Backend distant (state S3 + lock) | `backend.tf` | `tf-backend` |
+| Démo « rejouer l'attaque » | `demo.tf` | *(au niveau env, gated)* |
+| Variables / outputs / provider | `variables.tf`, `outputs.tf`, `providers.tf`, `main.tf` | — |
+
+## Les modules en un coup d'œil
+
+| Module | Rôle |
+|---|---|
+| `kms` | Clé KMS (CMK) + key policy, avec séparation administrateur / utilisateur de clé |
+| `sops` | User + clé KMS dédiés au chiffrement SOPS |
+| `secret` | Conteneur Secrets Manager (la valeur reste hors-state) |
+| `network` | VPC, subnets public/privé, Internet Gateway, NAT, tables de routage |
+| `security-groups` | Security groups web/db (micro-segmentation) |
+| `ec2` | Instance durcie **IMDSv2** (désactivée par défaut) |
+| `iam` | Users analyst/secretsreader, rôles, **permission boundary** |
+| `cloudtrail` | Trail → S3 + CloudWatch, chiffré KMS |
+| `logging` | VPC flow logs → CloudWatch (chiffrés KMS) |
+| `logs-archive` | Archivage des logs vers un bucket S3 |
+| `s3-access-logs` | Bucket central des logs d'accès S3 + data events |
+| `alerting` | Filtres type CIS + alarmes CloudWatch + SNS (mail) |
+| `github-oidc` | Provider OIDC + rôle CI (auth GitHub→AWS sans clé statique) |
+| `tf-backend` | Bucket S3 du state (SSE-KMS, versionné) + verrou DynamoDB |
+
+## Lancer le projet
+
+```bash
+cd envs/students
+
+AWS_PROFILE=wany terraform init     # initialise providers + backend distant
+AWS_PROFILE=wany terraform plan     # vérifie ce qui va changer
+AWS_PROFILE=wany terraform apply    # applique
+```
+
+- **Profil AWS** : `wany` (adapter au compte utilisé).
+- **Région** : `eu-west-3`.
+- **State** : distant (S3 chiffré KMS + verrou DynamoDB). Pas de state en local à committer.
+
+## Conventions d'équipe (à respecter absolument)
+
+- **Tout en IaC.** On ne modifie jamais une ressource à la main dans la console AWS : ça crée
+  du *drift* et le prochain `terraform apply` l'écrase. La console, c'est pour **regarder**,
+  pas pour modifier.
+- **Une brique = un module** (responsabilité unique). `envs/students` ne fait qu'assembler.
+- **Refactor sans casse** : pour déplacer/renommer des ressources, on utilise des blocs
+  `moved` → le plan doit afficher `0 to destroy`. Pour reprendre de l'existant, des blocs
+  `import`.
+- **Secrets** : toujours via SOPS (chiffrés, versionnables). Jamais de secret en clair, jamais
+  dans le state.
+- **`terraform fmt`** avant chaque commit (le hook pre-commit le fait pour toi).
+
+## Ajouter une nouvelle brique
+
+1. Créer `modules/<nom>/` avec `main.tf`, `variables.tf`, `outputs.tf`.
+2. L'appeler depuis un `envs/students/<nom>.tf` (passer les variables, récupérer les outputs).
+3. `terraform fmt -recursive` → `validate` → `plan` (vérifier `0 to destroy` si c'est un refactor).
+4. Ouvrir une PR : la CI (`fmt` + `tfsec` + `plan` commenté) tourne automatiquement.
+
+## Garde-fous automatiques
+
+- **pre-commit** : `fmt`, `validate`, `tflint`, **`tfsec`**, détection de secrets / clés privées.
+- **CI GitHub Actions** : `fmt` + `tfsec` à chaque push, `plan` commenté sur les PR.
+- **semgrep** : scanne `app/` (lève la RCE sur la version vulnérable, rien sur la corrigée).
+
+<Callout type="info" title="baseline/ exclu du scan">
+`baseline/` reproduit volontairement l'infra vulnérable du CTF (référence). Il est exclu de
+tfsec, sinon le pipeline resterait rouge à cause de failles intentionnelles.
+</Callout>

@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "architecture",
+    "code",
     "secrets",
     "reseau",
     "observabilite",
