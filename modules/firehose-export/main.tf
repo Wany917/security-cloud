@@ -189,3 +189,24 @@ resource "aws_cloudwatch_log_subscription_filter" "this" {
 
   depends_on = [aws_iam_role_policy.cwl_to_firehose]
 }
+
+# ── Alarme : la livraison vers S3 prend du retard (pipeline cassé) ──
+# DataFreshness = age de la plus vieille donnee pas encore livree. Si ca grimpe,
+# c'est que Firehose ne deverse plus dans S3.
+resource "aws_cloudwatch_metric_alarm" "delivery_freshness" {
+  count               = var.alarm_sns_topic_arn != null ? 1 : 0
+  alarm_name          = "${var.name_prefix}-firehose-delivery-freshness"
+  alarm_description   = "La livraison Firehose vers S3 prend du retard (donnees non livrees)."
+  namespace           = "AWS/Firehose"
+  metric_name         = "DeliveryToS3.DataFreshness"
+  dimensions          = { DeliveryStreamName = aws_kinesis_firehose_delivery_stream.this.name }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 900
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_sns_topic_arn]
+  ok_actions          = [var.alarm_sns_topic_arn]
+  tags                = var.tags
+}

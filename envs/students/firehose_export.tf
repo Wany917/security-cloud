@@ -13,4 +13,5 @@ module "firehose_export" {
   region                = var.region
   kms_admin_arns        = [local.caller_arn]
   access_log_bucket     = module.s3_access_logs.bucket
+  alarm_sns_topic_arn   = module.alerting.sns_topic_arn
 }

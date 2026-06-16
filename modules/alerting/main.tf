@@ -105,6 +105,26 @@ locals {
       pattern     = "{ ($.eventName = GetObject) && ($.requestParameters.bucketName = \"${var.tfstate_bucket_name}\") }"
       description = "Lecture du bucket de state Terraform (contient des secrets)"
     }
+    console_login_failures = {
+      pattern     = "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
+      description = "Echecs de connexion a la console (possible brute force)"
+    }
+    console_login_no_mfa = {
+      pattern     = "{ ($.eventName = \"ConsoleLogin\") && ($.additionalEventData.MFAUsed != \"Yes\") && ($.userIdentity.type = \"IAMUser\") && ($.responseElements.ConsoleLogin = \"Success\") }"
+      description = "Connexion console d'un user IAM sans MFA"
+    }
+    kms_key_deletion = {
+      pattern     = "{ ($.eventSource = kms.amazonaws.com) && (($.eventName = DisableKey) || ($.eventName = ScheduleKeyDeletion)) }"
+      description = "Desactivation ou suppression programmee d'une cle KMS"
+    }
+    s3_policy_changes = {
+      pattern     = "{ ($.eventSource = s3.amazonaws.com) && (($.eventName = PutBucketPolicy) || ($.eventName = DeleteBucketPolicy) || ($.eventName = PutBucketAcl) || ($.eventName = PutBucketPublicAccessBlock)) }"
+      description = "Modification de policy/ACL/public-access d'un bucket S3"
+    }
+    sg_changes = {
+      pattern     = "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }"
+      description = "Modification d'un security group (exposition reseau)"
+    }
   }
 }
 

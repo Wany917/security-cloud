@@ -31,6 +31,12 @@ variable "access_log_bucket" {
   default     = null
 }
 
+variable "alarm_sns_topic_arn" {
+  type        = string
+  description = "Topic SNS a alerter si la livraison Firehose vers S3 deraille (null = pas d'alarme)."
+  default     = null
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags additionnels."
