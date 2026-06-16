@@ -15,6 +15,23 @@ trace tout, puis on **alerte**.
 - **S3 access logging + data events CloudTrail** : on trace nominativement les accès aux
   buckets sensibles, dont le bucket de state qui contient des secrets.
 
+### Archivage vers S3 : deux chemins
+
+Pour garder les logs durablement dans S3, deux chemins coexistent :
+
+- **Livraison native** (par défaut) : CloudTrail écrit directement dans S3, et les flow logs
+  ont une double destination (CloudWatch + S3). Gratuit, supporté partout.
+- **Chemin canonique CloudWatch Logs → Firehose → S3** : un *subscription filter* sur le log
+  group CloudTrail pousse les events vers un delivery stream Firehose, qui les dépose chiffrés
+  dans S3. C'est la méthode standard d'export, activable par un toggle (off par défaut pour
+  maîtriser le coût, car Firehose est facturé à la donnée).
+
+<Callout type="info" title="Contrainte transformée en design">
+Firehose était initialement bloqué sur le compte étudiant (`SubscriptionRequiredException`),
+d'où la livraison native comme chemin par défaut. Une fois le compte habilité, le chemin
+Firehose a été câblé en option. Connaître et coder les deux est un choix assumé.
+</Callout>
+
 ## Alerting
 
 Journaliser ne suffit pas. CloudTrail est aussi livré vers **CloudWatch Logs**, où des
@@ -23,15 +40,25 @@ e-mail).
 
 ![Chaîne d'alerting : CloudTrail vers CloudWatch vers alarmes vers SNS](/img/alerting.png)
 
-Cinq alarmes couvrent les événements critiques :
+Une dizaine d'alarmes, alignées sur le **CIS Benchmark AWS**, couvrent les événements
+critiques :
 
 | Alarme | Déclencheur |
 |---|---|
 | `root_usage` | utilisation du compte root |
-| `unauthorized_api` | appels refusés (AccessDenied) |
+| `unauthorized_api` | appels refusés (AccessDenied / UnauthorizedOperation) |
 | `iam_changes` | création d'utilisateur, attachement de policy, clé d'accès |
-| `cloudtrail_tampering` | StopLogging, DeleteTrail |
+| `cloudtrail_tampering` | StopLogging, DeleteTrail, UpdateTrail |
 | `tfstate_read` | `GetObject` sur le bucket de state (= vol de secrets) |
+| `console_login_failures` | échecs de connexion à la console (brute force) |
+| `console_login_no_mfa` | connexion d'un utilisateur IAM sans MFA |
+| `kms_key_deletion` | désactivation / suppression programmée d'une clé KMS |
+| `s3_policy_changes` | modification de policy / ACL / public-access d'un bucket |
+| `sg_changes` | modification d'un security group (exposition réseau) |
+
+On surveille aussi la **santé de la chaîne de logs elle-même** : une alarme sur la
+*DataFreshness* du stream Firehose se déclenche si la livraison vers S3 prend du retard, donc
+si le pipeline d'export se casse.
 
 <Callout title="Testé en réel">
 L'alarme `root_usage` a capté un appel API root réel et envoyé un e-mail via SNS : la chaîne
